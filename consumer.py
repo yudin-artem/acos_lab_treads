@@ -1,13 +1,15 @@
 import threading
 import queue
+import time
 
 class Consumer(threading.Thread):
-    def __init__(self, task_queue, result_queue, name, producer_thread):
+    print_lock = threading.Lock()
+    
+    def __init__(self, name, task_queue, result_queue):
         super().__init__()
+        self.name = name
         self.task_queue = task_queue
         self.result_queue = result_queue
-        self.name = name
-        self.producer_thread = producer_thread
         self.daemon = True
         self.processed_count = 0
         self.tasks_done = 0
@@ -20,30 +22,35 @@ class Consumer(threading.Thread):
                 if task is None:
                     break
                 
-                processed_pixels = self.invert_pixels(task['pixels'])
+                processed_pixels = self.invert_pixels(task[1])
                 self.processed_count += len(processed_pixels)
                 self.tasks_done += 1
                 
-                result = (task['start_idx'], processed_pixels)
+                result = (task[0], processed_pixels)
                 self.result_queue.put(result)
                 
-                self.task_queue.task_done()
-                
             except queue.Empty:
-                if not self.producer_thread.is_alive() and self.task_queue.empty():
-                    break
+                if self.tasks_done == 0:
+                    print(f"Consumer {self.name} didn't find task ")
+                time.sleep(0.5)
                 continue
-        
+            except Exception as e:
+                print(f"Consumer {self.name}: unexpected error: {e} ")
+                break
+
+        self.result_queue.put(None)
+        with self.print_lock:
+            print(f"Consumer {self.name} finished work: total tasks = {self.tasks_done} total pixels converted = {self.processed_count} ")
     
     def invert_pixels(self, pixels):
         inverted = []
-        for i, pixel in enumerate(pixels):
+        for pixel in pixels:
             try:
-                if isinstance(pixel, (tuple, list)) and len(pixel) >= 3:
+                if len(pixel) == 3:
                     r, g, b = pixel[0], pixel[1], pixel[2]
                     inverted.append((255 - r, 255 - g, 255 - b))
                 else:
-                    print(f"{self.name}: type error: {pixel}")
+                    print(f"{self.name}: type error: {pixel} ")
             except Exception as e:
-                print(f"{self.name}: error: {e}")
+                print(f"Consumer {self.name}: error: {e} ")
         return inverted
