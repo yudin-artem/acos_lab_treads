@@ -14,12 +14,12 @@ try:
 
     producer.start()
     for consumer in consumers_list:
-            consumer.start()
+        consumer.start()
 
     none_count = 0
     res = []
 
-    while none_count != consumers_count:
+    while none_count < consumers_count:
         elem = queue_out.get()
         if elem is None:
             none_count += 1
